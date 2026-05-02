@@ -43,7 +43,8 @@ app.post('/login', (req, res) => {
 
   if (username === AUTH_USERNAME && password === AUTH_PASSWORD) {
     req.session.authenticated = true;
-    const redirectTo = req.session.returnTo || '/';
+    // const redirectTo = req.session.returnTo || '/';
+    const redirectTo = '/';
     delete req.session.returnTo;
     return res.redirect(redirectTo);
   }
