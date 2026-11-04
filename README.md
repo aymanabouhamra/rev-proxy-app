@@ -9,6 +9,7 @@ A lightweight Node.js reverse proxy with built-in authentication. Unauthenticate
 - Polished login page with error feedback
 - Original URL preserved and restored after login
 - `POST /logout` to end the session
+- WebSocket support — upgrade requests are proxied too, and require a logged-in session
 
 ## Setup
 
