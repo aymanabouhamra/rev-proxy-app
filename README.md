@@ -9,6 +9,7 @@ A lightweight Node.js reverse proxy with built-in authentication. Unauthenticate
 - Polished login page with error feedback
 - Original URL preserved and restored after login
 - `POST /logout` to end the session
+- WebSocket support — upgrade requests go to `WS_TARGET_URL` and require a logged-in session
 
 ## Setup
 
@@ -23,6 +24,7 @@ npm start
 | Variable | Required | Description |
 |---|---|---|
 | `HTTP_TARGET_URL` | Yes | Upstream app to proxy to (e.g. `https://example.com`, `http://railwayinternal.app:8080`) |
+| `WS_TARGET_URL` | Yes | WebSocket server to proxy upgrade requests to (e.g. `ws://your-ws.railway.internal:8080`) |
 | `AUTH_USERNAME` | Yes | Login username |
 | `AUTH_PASSWORD` | Yes | Login password |
 | `SESSION_SECRET` | Yes | Secret used to sign session cookies — use a long random string (openssl rand -hex 32) |

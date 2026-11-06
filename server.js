@@ -5,13 +5,15 @@ const path = require('path');
 
 const {
   HTTP_TARGET_URL,
+  WS_TARGET_URL,
   AUTH_USERNAME,
   AUTH_PASSWORD,
   SESSION_SECRET,
   PORT = 3000,
 } = process.env;
 
-if (!HTTP_TARGET_URL)     throw new Error('Missing required env var: HTTP_TARGET_URL');
+if (!HTTP_TARGET_URL) throw new Error('Missing required env var: HTTP_TARGET_URL');
+if (!WS_TARGET_URL)   throw new Error('Missing required env var: WS_TARGET_URL');
 if (!AUTH_USERNAME)  throw new Error('Missing required env var: AUTH_USERNAME');
 if (!AUTH_PASSWORD)  throw new Error('Missing required env var: AUTH_PASSWORD');
 if (!SESSION_SECRET) throw new Error('Missing required env var: SESSION_SECRET');
@@ -20,7 +22,7 @@ const app = express();
 
 app.use(express.urlencoded({ extended: false }));
 
-app.use(session({
+const sessionParser = session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -29,7 +31,9 @@ app.use(session({
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     sameSite: 'lax',
   },
-}));
+});
+
+app.use(sessionParser);
 
 // ── Auth routes ───────────────────────────────────────────────────────────────
 
@@ -79,9 +83,37 @@ const proxy = createProxyMiddleware({
 
 app.use('/', requireAuth, proxy);
 
+// ── WebSocket proxy ───────────────────────────────────────────────────────────
+
+const wsProxy = createProxyMiddleware({
+  target: WS_TARGET_URL,
+  changeOrigin: true,
+  on: {
+    error(err, req, socket) {
+      console.error('[ws proxy error]', err.message);
+      socket.destroy();
+    },
+  },
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Reverse proxy listening on http://localhost:${PORT}`);
-  console.log(`Forwarding to: ${HTTP_TARGET_URL}`);
+  console.log(`Forwarding HTTP to: ${HTTP_TARGET_URL}`);
+  console.log(`Forwarding WebSockets to: ${WS_TARGET_URL}`);
+});
+
+// Upgrade requests skip Express middleware, so load the session here and only
+// proxy logged-in connections.
+server.on('upgrade', (req, socket, head) => {
+  socket.on('error', (err) => console.error('[ws socket error]', err.message));
+
+  sessionParser(req, {}, () => {
+    if (!req.session || !req.session.authenticated) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      return socket.destroy();
+    }
+    wsProxy.upgrade(req, socket, head);
+  });
 });
