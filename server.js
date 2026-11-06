@@ -13,7 +13,6 @@ const {
 } = process.env;
 
 if (!HTTP_TARGET_URL) throw new Error('Missing required env var: HTTP_TARGET_URL');
-if (!WS_TARGET_URL)   throw new Error('Missing required env var: WS_TARGET_URL');
 if (!AUTH_USERNAME)  throw new Error('Missing required env var: AUTH_USERNAME');
 if (!AUTH_PASSWORD)  throw new Error('Missing required env var: AUTH_PASSWORD');
 if (!SESSION_SECRET) throw new Error('Missing required env var: SESSION_SECRET');
@@ -83,37 +82,48 @@ const proxy = createProxyMiddleware({
 
 app.use('/', requireAuth, proxy);
 
-// ── WebSocket proxy ───────────────────────────────────────────────────────────
-
-const wsProxy = createProxyMiddleware({
-  target: WS_TARGET_URL,
-  changeOrigin: true,
-  on: {
-    error(err, req, socket) {
-      console.error('[ws proxy error]', err.message);
-      socket.destroy();
-    },
-  },
-});
-
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 const server = app.listen(PORT, () => {
   console.log(`Reverse proxy listening on http://localhost:${PORT}`);
   console.log(`Forwarding HTTP to: ${HTTP_TARGET_URL}`);
-  console.log(`Forwarding WebSockets to: ${WS_TARGET_URL}`);
+  console.log(WS_TARGET_URL
+    ? `Forwarding WebSockets to: ${WS_TARGET_URL}`
+    : 'WebSocket proxy disabled (WS_TARGET_URL not set)');
 });
 
-// Upgrade requests skip Express middleware, so load the session here and only
-// proxy logged-in connections.
-server.on('upgrade', (req, socket, head) => {
-  socket.on('error', (err) => console.error('[ws socket error]', err.message));
+// ── WebSocket proxy (only when WS_TARGET_URL is set) ──────────────────────────
 
-  sessionParser(req, {}, () => {
-    if (!req.session || !req.session.authenticated) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-      return socket.destroy();
-    }
-    wsProxy.upgrade(req, socket, head);
+if (WS_TARGET_URL) {
+  const wsProxy = createProxyMiddleware({
+    target: WS_TARGET_URL,
+    changeOrigin: true,
+    on: {
+      error(err, req, socket) {
+        console.error('[ws proxy error]', err.message);
+        socket.destroy();
+      },
+    },
   });
-});
+
+  // Upgrade requests skip Express middleware, so load the session here and
+  // only proxy logged-in connections.
+  server.on('upgrade', (req, socket, head) => {
+    socket.on('error', (err) => console.error('[ws socket error]', err.message));
+
+    sessionParser(req, {}, () => {
+      if (!req.session || !req.session.authenticated) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+        return socket.destroy();
+      }
+      wsProxy.upgrade(req, socket, head);
+    });
+  });
+} else {
+  // Without this, Node passes upgrade requests to Express as normal requests
+  // and they'd leak into the HTTP proxy.
+  server.on('upgrade', (req, socket) => {
+    socket.on('error', () => {});
+    socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
+  });
+}
