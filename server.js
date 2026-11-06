@@ -4,14 +4,14 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('path');
 
 const {
-  TARGET_URL,
+  HTTP_TARGET_URL,
   AUTH_USERNAME,
   AUTH_PASSWORD,
   SESSION_SECRET,
   PORT = 3000,
 } = process.env;
 
-if (!TARGET_URL)     throw new Error('Missing required env var: TARGET_URL');
+if (!HTTP_TARGET_URL)     throw new Error('Missing required env var: HTTP_TARGET_URL');
 if (!AUTH_USERNAME)  throw new Error('Missing required env var: AUTH_USERNAME');
 if (!AUTH_PASSWORD)  throw new Error('Missing required env var: AUTH_PASSWORD');
 if (!SESSION_SECRET) throw new Error('Missing required env var: SESSION_SECRET');
@@ -67,7 +67,7 @@ function requireAuth(req, res, next) {
 // ── Reverse proxy ─────────────────────────────────────────────────────────────
 
 const proxy = createProxyMiddleware({
-  target: TARGET_URL,
+  target: HTTP_TARGET_URL,
   changeOrigin: true,
   on: {
     error(err, req, res) {
@@ -83,5 +83,5 @@ app.use('/', requireAuth, proxy);
 
 app.listen(PORT, () => {
   console.log(`Reverse proxy listening on http://localhost:${PORT}`);
-  console.log(`Forwarding to: ${TARGET_URL}`);
+  console.log(`Forwarding to: ${HTTP_TARGET_URL}`);
 });

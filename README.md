@@ -22,7 +22,7 @@ npm start
 
 | Variable | Required | Description |
 |---|---|---|
-| `TARGET_URL` | Yes | Upstream app to proxy to (e.g. `https://your-app.up.railway.app`) |
+| `HTTP_TARGET_URL` | Yes | Upstream app to proxy to (e.g. `https://example.com`, `http://railwayinternal.app:8080`) |
 | `AUTH_USERNAME` | Yes | Login username |
 | `AUTH_PASSWORD` | Yes | Login password |
 | `SESSION_SECRET` | Yes | Secret used to sign session cookies — use a long random string (openssl rand -hex 32) |
@@ -31,7 +31,7 @@ npm start
 ## Usage
 
 ```
-http://localhost:3000/          → requires login, then proxied to TARGET_URL
+http://localhost:3000/          → requires login, then proxied to HTTP_TARGET_URL
 http://localhost:3000/login     → login page
 POST http://localhost:3000/logout → clears session, redirects to /login
 ```
