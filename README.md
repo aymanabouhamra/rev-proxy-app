@@ -25,7 +25,7 @@ npm start
 | `TARGET_URL` | Yes | Upstream app to proxy to (e.g. `https://your-app.up.railway.app`) |
 | `AUTH_USERNAME` | Yes | Login username |
 | `AUTH_PASSWORD` | Yes | Login password |
-| `SESSION_SECRET` | Yes | Secret used to sign session cookies — use a long random string |
+| `SESSION_SECRET` | Yes | Secret used to sign session cookies — use a long random string (openssl rand -hex 32) |
 | `PORT` | No | Port to listen on (default: `3000`) |
 
 ## Usage
