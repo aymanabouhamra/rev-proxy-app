@@ -20,7 +20,7 @@ const app = express();
 
 app.use(express.urlencoded({ extended: false }));
 
-const sessionParser = session({
+app.use(session({
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -29,9 +29,7 @@ const sessionParser = session({
     maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
     sameSite: 'lax',
   },
-});
-
-app.use(sessionParser);
+}));
 
 // ── Auth routes ───────────────────────────────────────────────────────────────
 
@@ -71,14 +69,10 @@ function requireAuth(req, res, next) {
 const proxy = createProxyMiddleware({
   target: TARGET_URL,
   changeOrigin: true,
-  // WebSocket upgrades are handled manually below so they go through the
-  // auth check. Setting `ws: true` here would bypass it.
   on: {
     error(err, req, res) {
       console.error('[proxy error]', err.message);
-      // For WebSocket upgrades `res` is the raw socket, not an HTTP response.
-      if (!res.writeHead) return res.destroy();
-      if (!res.headersSent) res.status(502).send('Bad Gateway — upstream unreachable.');
+      res.status(502).send('Bad Gateway — upstream unreachable.');
     },
   },
 });
@@ -87,23 +81,7 @@ app.use('/', requireAuth, proxy);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Reverse proxy listening on http://localhost:${PORT}`);
   console.log(`Forwarding to: ${TARGET_URL}`);
-});
-
-// ── WebSocket proxy ───────────────────────────────────────────────────────────
-
-// Upgrade requests don't pass through Express middleware, so load the session
-// ourselves and only proxy authenticated connections.
-server.on('upgrade', (req, socket, head) => {
-  socket.on('error', (err) => console.error('[ws socket error]', err.message));
-
-  sessionParser(req, {}, () => {
-    if (!req.session || !req.session.authenticated) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
-      return socket.destroy();
-    }
-    proxy.upgrade(req, socket, head);
-  });
 });
